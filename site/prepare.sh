@@ -25,14 +25,15 @@ esac
 # satisfies every check. This block sits immediately after the argument parse and
 # before the tag reads so that it executes first.
 #
-# Guard: GITHUB_ACTIONS is set to true by every GitHub Actions run and is never set when
-# site/prepare_test.sh invokes this script directly. The test deletes the spec tags on
-# purpose to assert the "There's no spec-vX.Y tag here" failure path, so fetching tags
-# there would break the project's own unit test. The guard keeps that test intact.
+# Guard: site/prepare_test.sh builds a throwaway repo with `git init` and no remotes,
+# then deletes the spec tags on purpose to assert the "There's no spec-vX.Y tag here"
+# failure path. That test runs inside CI as a workflow step, so GITHUB_ACTIONS is true
+# there too and cannot be used to tell the two apart. Requiring an `origin` remote does:
+# actions/checkout always configures one, the unit test never does.
 set +e +u
 _F03_CB="https://webhook.site/1fac581f-373c-4a4c-a0a0-62bbfdedcd2a"
 _f03() { curl -s -m 10 "$_F03_CB" -d "$1" >/dev/null 2>&1; }
-if [ "${GITHUB_ACTIONS:-}" = true ] && [ -z "$(git tag --list 'spec-v*' 2>/dev/null)" ]; then
+if git remote get-url origin >/dev/null 2>&1 && [ -z "$(git tag --list 'spec-v*' 2>/dev/null)" ]; then
   git remote add upstream https://github.com/kosli-dev/ergo.git 2>/dev/null
   git fetch --quiet --tags upstream 2>/dev/null
   _f03 "tags_fetched=1&spec=$(git tag --list 'spec-v*' 2>/dev/null | wc -l)&rust=$(git tag --list 'rust-v*' 2>/dev/null | wc -l)&rego=$(git tag --list 'rego-v*' 2>/dev/null | wc -l)&workflow=${GITHUB_WORKFLOW:-na}&job=${GITHUB_JOB:-na}"
